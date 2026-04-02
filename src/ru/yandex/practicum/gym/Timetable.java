@@ -17,12 +17,7 @@ public class Timetable {
         TimeOfDay time = trainingSession.getTimeOfDay();
 
         TreeMap<TimeOfDay, List<TrainingSession>> dayMap = timetable.get(day);
-        List<TrainingSession> listSession = dayMap.get(time);
-
-        if (listSession == null) {
-            listSession = new ArrayList<>();
-            dayMap.put(time, listSession);
-        }
+        List<TrainingSession> listSession = dayMap.computeIfAbsent(time, k -> new ArrayList<>());
 
         if (!listSession.contains(trainingSession)) {
             listSession.add(trainingSession);
@@ -30,14 +25,12 @@ public class Timetable {
 
     }
 
-    public List<TrainingSession> getTrainingSessionsForDay(DayOfWeek dayOfWeek) {
+    public TreeMap<TimeOfDay, List<TrainingSession>> getTrainingSessionsForDay(DayOfWeek dayOfWeek) {
         TreeMap<TimeOfDay, List<TrainingSession>> daySchedule = timetable.get(dayOfWeek);
-        if (daySchedule == null) return Collections.emptyList();
-        List<TrainingSession> result = new ArrayList<>();
-        for (List<TrainingSession> sessions : daySchedule.values()) {
-            result.addAll(sessions);
+        if (daySchedule == null) {
+            return new TreeMap<>();
         }
-        return result;
+        return daySchedule;
     }
 
     public List<TrainingSession> getTrainingSessionsForDayAndTime(DayOfWeek dayOfWeek, TimeOfDay timeOfDay) {
@@ -50,29 +43,33 @@ public class Timetable {
         return sessions != null ? sessions : Collections.emptyList();
     }
 
-    public Map<Coach, Integer> getCountByCoaches() {
-        Map<Coach, Integer> coachCount = new HashMap<>();
+    public List<CounterForCoach> getCountByCoaches() {
+        Map<Coach, Integer> coachCounts = new HashMap<>();
 
         for (TreeMap<TimeOfDay, List<TrainingSession>> daySchedule : timetable.values()) {
-            for (List<TrainingSession> sessions : daySchedule.values()) {
-                for (TrainingSession session : sessions) {
+            for (List<TrainingSession> sessionsAtTime : daySchedule.values()) {
+                for (TrainingSession session : sessionsAtTime) {
                     Coach coach = session.getCoach();
-                    if (coachCount.containsKey(coach)) {
-                        coachCount.put(coach, coachCount.get(coach) + 1);
+
+                    if (coachCounts.containsKey(coach)) {
+                        int currentCount = coachCounts.get(coach);
+                        coachCounts.put(coach, currentCount + 1);
                     } else {
-                        coachCount.put(coach, 1);
+                        coachCounts.put(coach, 1);
                     }
                 }
             }
         }
 
-        List<Map.Entry<Coach, Integer>> sortedEntries = new ArrayList<>(coachCount.entrySet());
-        sortedEntries.sort(Map.Entry.<Coach, Integer>comparingByValue().reversed());
-
-        Map<Coach, Integer> result = new LinkedHashMap<>();
-        for (Map.Entry<Coach, Integer> entry : sortedEntries) {
-            result.put(entry.getKey(), entry.getValue());
+        List<CounterForCoach> result = new ArrayList<>();
+        for (Map.Entry<Coach, Integer> entry : coachCounts.entrySet()) {
+            Coach coach = entry.getKey();
+            int count = entry.getValue();
+            result.add(new CounterForCoach(coach, count));
         }
+
+        Collections.sort(result);
+
         return result;
     }
 }
